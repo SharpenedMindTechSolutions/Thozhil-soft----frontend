@@ -3,7 +3,7 @@ import { useNavigate } from "react-router-dom";
 import logo from "../assets/logo1.jpg";
 import { FaArrowLeft } from "react-icons/fa";
 
-const API_URL = import.meta.env.VITE_API_URL;
+const API_URL = import.meta.env.VITE_API_URL; 
 
 function AddEmployee() {
   const navigate = useNavigate();
