@@ -5,6 +5,7 @@ import { useNavigate } from "react-router-dom";
 import logo from "../assets/logo1.jpg";
 import { toast, ToastContainer } from "react-toastify";
 import "react-toastify/dist/ReactToastify.css";
+
 const API_URL = import.meta.env.VITE_API_URL;
 
 // ---------------- Modal Component ----------------
@@ -62,6 +63,7 @@ function Letters() {
   const [interns, setInterns] = useState([]);
   const [showModal, setShowModal] = useState(false);
   const [sidebarOpen, setSidebarOpen] = useState(true);
+  const [loading, setLoading] = useState(false); // ✅ Properly placed hook
 
   const [formData, setFormData] = useState({
     internId: "",
@@ -104,13 +106,16 @@ function Letters() {
 
   const handleSubmit = async (e) => {
     e.preventDefault();
+    setLoading(true); // ✅ Start loading animation
     try {
       const response = await fetch(`${API_URL}/mkuintern`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(formData),
       });
+
       if (!response.ok) throw new Error("Failed to generate PDF");
+
       const blob = await response.blob();
       const url = window.URL.createObjectURL(blob);
       const link = document.createElement("a");
@@ -118,15 +123,27 @@ function Letters() {
       link.download = `${formData.internName}_${formData.course}_mku_intern_Certificate.pdf`;
       link.click();
       window.URL.revokeObjectURL(url);
+
       toast.success("PDF generated successfully!");
+
       setFormData({
-        internId: "", internName: "", course: "", project: "", attendance: "", testMark: "", starting: "", ending: "",
+        internId: "",
+        internName: "",
+        course: "",
+        project: "",
+        attendance: "",
+        testMark: "",
+        starting: "",
+        ending: "",
       });
       setShowModal(false);
       setActiveSubMenu("");
       navigate("/letters");
-    } catch {
+    } catch (error) {
+      console.error("Error generating PDF:", error);
       toast.error("Error generating PDF");
+    } finally {
+      setLoading(false); // ✅ End loading
     }
   };
 
@@ -190,25 +207,39 @@ function Letters() {
           </li>
           {openMenus["Internship"] && (
             <ul style={styles.subMenuList}>
-              <li style={subMenuItemStyle(activeSubMenu === "SMD Intern's")} onClick={() => { setActiveMenu("Internship"); setActiveSubMenu("SMD Intern's"); }}>
+              <li
+                style={subMenuItemStyle(activeSubMenu === "SMD Intern's")}
+                onClick={() => {
+                  setActiveMenu("Internship");
+                  setActiveSubMenu("SMD Intern's");
+                }}
+              >
                 Intern Student
               </li>
-              <li style={subMenuItemStyle(activeSubMenu === "Certificate")} onClick={() => { setActiveMenu("Internship"); setActiveSubMenu("Certificate"); navigate('/smdinterncertify'); }}>
+              <li
+                style={subMenuItemStyle(activeSubMenu === "Certificate")}
+                onClick={() => {
+                  setActiveMenu("Internship");
+                  setActiveSubMenu("Certificate");
+                  navigate("/smdinterncertify");
+                }}
+              >
                 Certificate
               </li>
             </ul>
           )}
 
           {["Experience Letter", "Relieving Letter", "Offer Letter", "Quotation Letter"].map((m) => (
-            <li key={m} style={menuItemStyle(activeMenu === m)}
+            <li
+              key={m}
+              style={menuItemStyle(activeMenu === m)}
               onClick={() => {
                 setActiveMenu(m);
                 setActiveSubMenu("");
                 if (m === "Experience Letter") navigate("/experienceletter");
-                // if (m === "Relieving Letter") navigate("/relieveletter");
-                // if (m === "Offer Letter") navigate("/offerletter");
                 if (m === "Quotation Letter") navigate("/quotation");
-              }}>
+              }}
+            >
               {m}
             </li>
           ))}
@@ -219,7 +250,14 @@ function Letters() {
           </li>
           {openMenus["MKU Mini Internship"] && (
             <ul style={styles.subMenuList}>
-              <li style={subMenuItemStyle(activeSubMenu === "Add Intern")} onClick={() => { setActiveMenu("MKU Mini Internship"); setActiveSubMenu("Add Intern"); setShowModal(true); }}>
+              <li
+                style={subMenuItemStyle(activeSubMenu === "Add Intern")}
+                onClick={() => {
+                  setActiveMenu("MKU Mini Internship");
+                  setActiveSubMenu("Add Intern");
+                  setShowModal(true);
+                }}
+              >
                 Add Intern & Download Certificate
               </li>
             </ul>
@@ -233,14 +271,23 @@ function Letters() {
 
       {/* Main Content */}
       <div style={styles.content}>
-        <h2>{activeMenu || "Dashboard"} {activeSubMenu ? `- ${activeSubMenu}` : ""}</h2>
+        <h2>
+          {activeMenu || "Dashboard"} {activeSubMenu ? `- ${activeSubMenu}` : ""}
+        </h2>
         <div style={styles.card}>{renderContent()}</div>
       </div>
 
       {/* Modal */}
       {showModal && (
         <Modal onClose={() => { setShowModal(false); setActiveSubMenu(""); }}>
-          <InternForm formData={formData} setFormData={setFormData} handleSubmit={handleSubmit} firstInputRef={firstInputRef} setShowModal={setShowModal} />
+          <InternForm
+            formData={formData}
+            setFormData={setFormData}
+            handleSubmit={handleSubmit}
+            firstInputRef={firstInputRef}
+            setShowModal={setShowModal}
+            loading={loading}
+          />
         </Modal>
       )}
       <ToastContainer position="top-right" />
@@ -249,7 +296,7 @@ function Letters() {
 }
 
 // ---------------- Intern Form ----------------
-const InternForm = ({ formData, setFormData, handleSubmit, firstInputRef, setShowModal }) => (
+const InternForm = ({ formData, setFormData, handleSubmit, firstInputRef, setShowModal, loading }) => (
   <div
     style={{
       padding: "20px",
@@ -264,19 +311,26 @@ const InternForm = ({ formData, setFormData, handleSubmit, firstInputRef, setSho
       Internship Details
     </h2>
 
-    <form onSubmit={handleSubmit} style={{
-      display: "grid",
-      gridTemplateColumns: "repeat(auto-fit, minmax(180px, 1fr))",
-      gap: "16px 12px",
-    }}>
+    <form
+      onSubmit={handleSubmit}
+      style={{
+        display: "grid",
+        gridTemplateColumns: "repeat(auto-fit, minmax(180px, 1fr))",
+        gap: "16px 12px",
+      }}
+    >
       {["internId", "internName", "course", "project", "attendance", "testMark", "starting", "ending"].map((field) => (
         <div key={field} style={{ display: "flex", flexDirection: "column" }}>
           <label style={{ fontSize: "0.9rem", fontWeight: "500", marginBottom: "4px", color: "#374151" }}>
-            {field === "internId" ? "Intern ID" :
-              field === "internName" ? "Intern Name" :
-                field === "starting" ? "Start Date" :
-                  field === "ending" ? "End Date" :
-                    field.charAt(0).toUpperCase() + field.slice(1)}
+            {field === "internId"
+              ? "Intern ID"
+              : field === "internName"
+              ? "Intern Name"
+              : field === "starting"
+              ? "Start Date"
+              : field === "ending"
+              ? "End Date"
+              : field.charAt(0).toUpperCase() + field.slice(1)}
           </label>
 
           {field === "course" ? (
@@ -309,14 +363,16 @@ const InternForm = ({ formData, setFormData, handleSubmit, firstInputRef, setSho
       ))}
 
       {/* Buttons */}
-      <div style={{
-        gridColumn: "1 / -1",
-        display: "flex",
-        flexWrap: "wrap",
-        justifyContent: "flex-end",
-        gap: "10px",
-        marginTop: "15px",
-      }}>
+      <div
+        style={{
+          gridColumn: "1 / -1",
+          display: "flex",
+          flexWrap: "wrap",
+          justifyContent: "flex-end",
+          gap: "10px",
+          marginTop: "15px",
+        }}
+      >
         <button
           type="button"
           onClick={() => setShowModal(false)}
@@ -324,38 +380,58 @@ const InternForm = ({ formData, setFormData, handleSubmit, firstInputRef, setSho
         >
           Cancel
         </button>
+
         <button
           type="submit"
-          style={{ ...buttonStyle, background: "#3b82f6", color: "#fff" }}
+          disabled={loading}
+          style={{
+            ...buttonStyle,
+            background: loading ? "#2563eb" : "#3b82f6",
+            color: "#fff",
+            position: "relative",
+            overflow: "hidden",
+            transition: "all 0.3s ease",
+            opacity: loading ? 0.8 : 1,
+            cursor: loading ? "not-allowed" : "pointer",
+          }}
         >
-          Submit
+          {loading ? (
+            <span
+              style={{
+                display: "inline-block",
+                width: "18px",
+                height: "18px",
+                border: "3px solid rgba(255, 255, 255, 0.6)",
+                borderTop: "3px solid white",
+                borderRadius: "50%",
+                animation: "spin 1s linear infinite",
+              }}
+            ></span>
+          ) : (
+            "Submit"
+          )}
         </button>
       </div>
     </form>
+
+    {/* Spinner animation */}
+    <style>
+      {`
+        @keyframes spin {
+          0% { transform: rotate(0deg); }
+          100% { transform: rotate(360deg); }
+        }
+      `}
+    </style>
   </div>
 );
-
 
 // ---------------- Styles ----------------
 const styles = {
   container: { display: "flex", fontFamily: "'Poppins', sans-serif", background: "#f8f9fa", minHeight: "100vh" },
   sidebar: { position: "fixed", top: 0, left: 0, width: "260px", height: "100%", background: "#1e293b", padding: "20px 10px", display: "flex", flexDirection: "column", transition: "left 0.3s ease", zIndex: 1000 },
-  sidebarHeader: {
-    display: "flex",
-    flexDirection: "column",
-    alignItems: "center",
-    marginBottom: "20px",
-    position: "relative"
-  },
-  logoImage: {
-    width: "100px",
-    height: "auto",
-    borderRadius: "8px",
-    backgroundColor: "#fff",
-    padding: "5px",
-    display: "block",
-    margin: "0 auto",
-  },
+  sidebarHeader: { display: "flex", flexDirection: "column", alignItems: "center", marginBottom: "20px", position: "relative" },
+  logoImage: { width: "100px", borderRadius: "8px", backgroundColor: "#fff", padding: "5px", display: "block", margin: "0 auto" },
   hamburger: { display: "none", fontSize: "1.4rem", background: "transparent", border: "none", color: "#fff", cursor: "pointer" },
   menuList: { listStyle: "none", padding: 0, flex: 1 },
   subMenuList: { listStyle: "none", paddingLeft: "16px", marginTop: "5px" },
@@ -368,10 +444,26 @@ const styles = {
 const tableStyle = { width: "100%", borderCollapse: "collapse", minWidth: "600px" };
 const tableCellStyle = { padding: "10px", border: "1px solid #ddd", fontSize: "0.9rem" };
 const responsiveButtonContainer = { display: "flex", justifyContent: "flex-end", marginBottom: "15px" };
-const menuItemStyle = (active) => ({ padding: "12px 10px", borderRadius: "8px", cursor: "pointer", display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "8px", color: active ? "#fff" : "#cbd5e1", fontWeight: active ? 600 : 500, background: active ? "#2563eb" : "transparent" });
-const subMenuItemStyle = (active) => ({ padding: "10px 12px", borderRadius: "8px", marginBottom: "6px", color: active ? "#fff" : "#cbd5e1", background: active ? "#2563eb" : "transparent", cursor: "pointer" });
-const cancelButtonStyle = { padding: "10px 22px", borderRadius: "8px", border: "none", background: "#e5e7eb", color: "#374151", fontWeight: "600", cursor: "pointer" };
-const submitButtonStyle = { padding: "10px 22px", borderRadius: "8px", border: "none", background: "linear-gradient(135deg, #2563eb, #3b82f6)", color: "#fff", fontWeight: "600", cursor: "pointer" };
+const menuItemStyle = (active) => ({
+  padding: "12px 10px",
+  borderRadius: "8px",
+  cursor: "pointer",
+  display: "flex",
+  justifyContent: "space-between",
+  alignItems: "center",
+  marginBottom: "8px",
+  color: active ? "#fff" : "#cbd5e1",
+  fontWeight: active ? 600 : 500,
+  background: active ? "#2563eb" : "transparent",
+});
+const subMenuItemStyle = (active) => ({
+  padding: "10px 12px",
+  borderRadius: "8px",
+  marginBottom: "6px",
+  color: active ? "#fff" : "#cbd5e1",
+  background: active ? "#2563eb" : "transparent",
+  cursor: "pointer",
+});
 const buttonStyle = {
   padding: "8px 16px",
   borderRadius: "6px",
@@ -389,5 +481,5 @@ const inputStyle = {
   backgroundColor: "#fff",
   transition: "border-color 0.2s",
 };
-export default Letters;
 
+export default Letters;
