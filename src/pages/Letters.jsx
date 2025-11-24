@@ -70,10 +70,6 @@ function Letters() {
     internName: "",
     course: "",
     project: "",
-    attendance: "",
-    testMark: "",
-    starting: "",
-    ending: "",
   });
 
   const firstInputRef = useRef(null);
@@ -105,47 +101,51 @@ function Letters() {
   const handleChange = (e) => setFormData((prev) => ({ ...prev, [e.target.name]: e.target.value.toUpperCase() }));
 
   const handleSubmit = async (e) => {
-    e.preventDefault();
-    setLoading(true); // ✅ Start loading animation
-    try {
-      const response = await fetch(`${API_URL}/mkuintern`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(formData),
-      });
+  e.preventDefault();
+  setLoading(true);
 
-      if (!response.ok) throw new Error("Failed to generate PDF");
+  try {
+    const response = await fetch(`${API_URL}/mkuintern`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(formData),
+    });
 
-      const blob = await response.blob();
-      const url = window.URL.createObjectURL(blob);
-      const link = document.createElement("a");
-      link.href = url;
-      link.download = `${formData.internName}_${formData.course}_mku_intern_Certificate.pdf`;
-      link.click();
-      window.URL.revokeObjectURL(url);
-
-      toast.success("PDF generated successfully!");
-
-      setFormData({
-        internId: "",
-        internName: "",
-        course: "",
-        project: "",
-        attendance: "",
-        testMark: "",
-        starting: "",
-        ending: "",
-      });
-      setShowModal(false);
-      setActiveSubMenu("");
-      navigate("/letters");
-    } catch (error) {
-      console.error("Error generating PDF:", error);
-      toast.error("Error generating PDF");
-    } finally {
-      setLoading(false); // ✅ End loading
+    // If response is not OK, extract JSON error message
+    if (!response.ok) {
+      const errorData = await response.json(); // <-- Get backend JSON
+      throw new Error(errorData.error || "Failed to generate PDF");
     }
-  };
+
+    // Success
+    const blob = await response.blob();
+    const url = window.URL.createObjectURL(blob);
+    const link = document.createElement("a");
+    link.href = url;
+    link.download = `${formData.internName}_${formData.course}_mku_intern_Certificate.pdf`;
+    link.click();
+    window.URL.revokeObjectURL(url);
+
+    toast.success("PDF generated successfully!");
+
+    setFormData({
+      internId: "",
+      internName: "",
+      course: "",
+      project: "",
+    });
+
+    setShowModal(false);
+    setActiveSubMenu("");
+    navigate("/letters");
+
+  } catch (error) {
+    console.error("Error generating PDF:", error);
+    toast.error(error.message); // <-- Show backend error
+  } finally {
+    setLoading(false);
+  }
+};
 
   // ---------------- Render Content ----------------
   const renderContent = () => {
@@ -319,7 +319,7 @@ const InternForm = ({ formData, setFormData, handleSubmit, firstInputRef, setSho
         gap: "16px 12px",
       }}
     >
-      {["internId", "internName", "course", "project", "attendance", "testMark", "starting", "ending"].map((field) => (
+      {["internId", "internName", "course", "project"].map((field) => (
         <div key={field} style={{ display: "flex", flexDirection: "column" }}>
           <label style={{ fontSize: "0.9rem", fontWeight: "500", marginBottom: "4px", color: "#374151" }}>
             {field === "internId"
@@ -355,7 +355,6 @@ const InternForm = ({ formData, setFormData, handleSubmit, firstInputRef, setSho
               name={field}
               value={formData[field]}
               onChange={(e) => setFormData({ ...formData, [e.target.name]: e.target.value })}
-              required
               style={inputStyle}
             />
           )}
